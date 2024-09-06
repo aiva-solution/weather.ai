@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOVA - Your Weather Assistant</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            color: #333;
+            text-align: center;
+            transition: background 1s ease, background-color 1s ease;
+        }
+        .container {
+            max-width: 480px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        h1 {
+            background: linear-gradient(to right, #0288d1, #00e676);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-fill-color: transparent;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            font-weight: 600;
+        }
+        .chatbox {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow-y: auto;
+            padding: 10px;
+            border-top: 2px solid #0288d1;
+            background-color: rgba(241, 248, 255, 0.8); /* Slightly translucent background */
+            border-radius: 10px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            transition: background-color 1s ease;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 80%;
+            display: inline-block;
+            line-height: 1.5;
+            position: relative;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+            word-break: break-word;
+        }
+        .message.user-message {
+            background-color: #0288d1;
+            color: #fff;
+            align-self: flex-end;
+            border-bottom-left-radius: 0;
+        }
+        .message.bot-message {
+            background-color: #e1f5fe;
+            color: #000;
+            align-self: flex-start;
+            border-bottom-right-radius: 0;
+        }
+        .timestamp {
+            font-size: 0.75em;
+            color: #666;
+            margin-top: 5px;
+        }
+        .weather-icon {
+            width: 30px;
+            height: 30px;
+            vertical-align: middle;
+        }
+        .advice {
+            font-weight: bold;
+            color: #0288d1;
+        }
+        .ask {
+            font-weight: bold;
+            margin-top: 20px;
+            color: #0288d1;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        input, button {
+            font-size: 16px;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            outline: none;
+            box-sizing: border-box;
+        }
+        input {
+            width: calc(100% - 24px);
+        }
+        button {
+            background-color: #0288d1;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #0277bd;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body onload="sendIntroMessage()">
+    <div class="container">
+        <h1>NOVA</h1>
+        <div class="chatbox" id="chatbox"></div>
+        <div>
+            <input type="text" id="city" placeholder="Enter city" aria-label="City">
+            <button onclick="getWeather()">Get Weather</button>
+            <button onclick="fetchAirQuality()">Fetch Air Quality</button>
+        </div>
+    </div>
+    <script>
+        let firstCityChecked = false;
+
+        function sendIntroMessage() {
+            appendMessage('bot-message', `Hello! I am Nova, your weather assistant. ☀️🌧️ Let me know which city you want to get the weather for, or ask me about air quality.`, false);
+        }
+
+        async function getWeather() {
+            const city = document.getElementById('city').value.trim();
+            const apiKey = 'a0dc4cd86fbe0b166160084a36c15e33';
+            const url = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`;
+            const chatbox = document.getElementById('chatbox');
+
+            if (!city) {
+                appendMessage('user-message', 'Please enter a city name.');
+                return;
+            }
+
+            appendMessage('user-message', `Getting weather for ${city}...`);
+            autoScrollToBottom();
+
+            await delay(2000); // Delay before sending response
+
+            try {
+                appendMessage('bot-message', '...', true); // Show typing effect
+                autoScrollToBottom();
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (chatbox.querySelector('.typing')) {
+                    chatbox.querySelector('.typing').remove();
+                }
+
+                if (data.cod !== "200") {
+                    appendMessage('bot-message', data.message);
+                } else {
+                    const weatherData = data.list.filter((entry, index) => index % 8 === 0).slice(0, 3); // Get 3 daily forecasts
+                    const today = weatherData[0];
+                    let weatherInfo = '';
+
+                    // Today's weather details
+                    const todayDate = new Date(today.dt * 1000);
+                    const todayTemperature = today.main.temp;
+                    const todayDescription = today.weather[0].description;
+                    const todayHumidity = today.main.humidity;
+                    const todayUvIndex = (Math.random() * 10).toFixed(1); // Mock UV index
+                    const todayRainChance = (Math.random() * 100).toFixed(0); // Mock rain chance percentage
+
+                    await delay(2000); // Delay before sending today's weather details
+                    appendMessage('bot-message', `Today's weather in ${city}:<br>
+                        Temperature: ${todayTemperature}°C<br>
+                        Description: ${todayDescription}<br>
+                        Humidity: ${todayHumidity}%<br>
+                        UV Index: ${todayUvIndex}<br>
+                        Rain Chance: ${todayRainChance}%<br>`);
+
+                    // Advice based on today's weather
+                    const advice = getAdvice(todayDescription);
+                    await delay(2000); // Delay before sending advice
+                    appendMessage('bot-message', `<span class="advice">Advice: ${advice}</span>`);
+
+                    // 3-Day Forecast excluding today
+                    for (let i = 1; i < weatherData.length; i++) {
+                        const entry = weatherData[i];
+                        const date = new Date(entry.dt * 1000);
+                        const temperature = entry.main.temp;
+                        const description = entry.weather[0].description;
+                        const icon = `http://openweathermap.org/img/wn/${entry.weather[0].icon}.png`;
+                        const uvIndex = (Math.random() * 10).toFixed(1); // Mock UV index
+                        const rainChance = (Math.random() * 100).toFixed(0); // Mock rain chance percentage
+
+                        weatherInfo += 
+                            `<strong>Date:</strong> ${date.toDateString()}<br>
+                            <strong>Temperature:</strong> ${temperature}°C<br>
+                            <strong>Description:</strong> ${description}<br>
+                            <img class="weather-icon" src="${icon}" alt="${description}"><br>
+                            <strong>UV Index:</strong> ${uvIndex}<br>
+                            <strong>Rain Chance:</strong> ${rainChance}%<br><br>`;
+                    }
+
+                    await delay(2000); // Delay before sending 3-day forecast
+                    appendMessage('bot-message', `<span class="advice">2-Day Forecast:<br>${weatherInfo}</span>`);
+
+                    if (!firstCityChecked) {
+                        changeBackgroundBasedOnWeather(today.weather[0].main);
+                        firstCityChecked = true;
+                    }
+
+                    // Ask for further action
+                    await delay(2000); // Delay before asking for further action
+                    appendMessage('bot-message', `Would you like to know the weather for another city or fetch air quality data? Press the button for 'another city' or 'air quality' or type in a new city!`);
+                }
+            } catch (error) {
+                appendMessage('bot-message', 'Sorry, there was an error fetching the weather data.');
+            }
+
+            autoScrollToBottom();
+        }
+
+        function getAdvice(description) {
+            description = description.toLowerCase();
+            if (description.includes('clear')) {
+                return 'It\'s clear and sunny! Perfect day to go outside.';
+            } else if (description.includes('rain')) {
+                return 'Expect rain today. Don\'t forget your umbrella!';
+            } else if (description.includes('clouds')) {
+                return 'It\'s cloudy. Consider having a light jacket handy.';
+            } else if (description.includes('snow')) {
+                return 'It\'s snowing! Dress warmly and stay safe.';
+            } else {
+                return 'Weather is unpredictable. Stay prepared for any conditions.';
+            }
+        }
+
+        function changeBackgroundBasedOnWeather(weatherCondition) {
+            const body = document.body;
+            if (weatherCondition === 'Clear') {
+                body.style.background = 'linear-gradient(to top, #87CEEB, #ffffff)'; // Clear sky
+            } else if (weatherCondition === 'Rain') {
+                body.style.background = 'linear-gradient(to top, #708090, #ffffff)'; // Rainy
+            } else if (weatherCondition === 'Clouds') {
+                body.style.background = 'linear-gradient(to top, #B0C4DE, #ffffff)'; // Cloudy
+            } else if (weatherCondition === 'Snow') {
+                body.style.background = 'linear-gradient(to top, #ADD8E6, #ffffff)'; // Snowy
+            } else {
+                body.style.background = 'linear-gradient(to top, #ffffff, #ffffff)'; // Default
+            }
+        }
+
+        async function fetchAirQuality() {
+            const city = document.getElementById('city').value.trim();
+            if (!city) {
+                appendMessage('user-message', 'Please enter a city name first.');
+                return;
+            }
+
+            appendMessage('user-message', `Fetching air quality data for ${city}...`);
+            autoScrollToBottom();
+
+            await delay(2000); // Delay before sending response
+
+            // Simulated air quality data within 1-5 range
+            const airQualityData = {
+                AQI: Math.floor(Math.random() * 5) + 1, // AQI between 1 and 5
+                PM10: (Math.random() * 50).toFixed(1), // PM10 between 0 and 50
+                PM2_5: (Math.random() * 30).toFixed(1), // PM2.5 between 0 and 30
+                CO: (Math.random() * 5).toFixed(1) // CO between 0 and 5
+            };
+
+            const advice = getAirQualityAdvice(airQualityData.AQI);
+            const gradient = `linear-gradient(to right, rgba(0, 230, 118, 0.5), rgba(2, 136, 209, 0.5))`; // Translucent gradient
+
+            appendMessage('bot-message', '...', true); // Show typing effect
+            autoScrollToBottom();
+
+            await delay(2000); // Simulate typing effect delay
+
+            if (document.getElementById('chatbox').querySelector('.typing')) {
+                document.getElementById('chatbox').querySelector('.typing').remove();
+            }
+
+            document.body.style.background = gradient;
+
+            appendMessage('bot-message', `Air Quality Index (AQI): ${airQualityData.AQI}<br>
+                PM10: ${airQualityData.PM10} µg/m³<br>
+                PM2.5: ${airQualityData.PM2_5} µg/m³<br>
+                CO: ${airQualityData.CO} mg/m³<br>`);
+            appendMessage('bot-message', `<span class="advice">Advice: ${advice}</span>`);
+
+            // Ask for further action
+            appendMessage('bot-message', `Would you like to know the weather for another city or fetch air quality data for a different city? Type 'another city' or 'air quality'.`);
+            autoScrollToBottom();
+        }
+
+        function getAirQualityAdvice(aqi) {
+            if (aqi === 1) {
+                return 'Air quality is excellent. Enjoy your day!';
+            } else if (aqi === 2) {
+                return 'Air quality is good. You may want to stay outdoors but take precautions if you have respiratory issues.';
+            } else if (aqi === 3) {
+                return 'Air quality is moderate. People with respiratory conditions should limit prolonged outdoor exertion.';
+            } else if (aqi === 4) {
+                return 'Air quality is unhealthy. Avoid prolonged outdoor activities and stay indoors if possible.';
+            } else if (aqi === 5) {
+                return 'Air quality is very unhealthy. Everyone should avoid outdoor activities and stay indoors.';
+            }
+        }
+
+        function appendMessage(className, message, isTyping = false) {
+            const chatbox = document.getElementById('chatbox');
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${className}`;
+            if (isTyping) {
+                messageElement.innerHTML = '<div class="typing">...</div>';
+                chatbox.appendChild(messageElement);
+                return;
+            }
+            messageElement.innerHTML = message + `<br><span class="timestamp">${getCurrentTime()}</span>`;
+            chatbox.appendChild(messageElement);
+        }
+
+        function getCurrentTime() {
+            const now = new Date();
+            return `${now.getHours()}:${now.getMinutes()}`;
+        }
+
+        function autoScrollToBottom() {
+            const chatbox = document.getElementById('chatbox');
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
